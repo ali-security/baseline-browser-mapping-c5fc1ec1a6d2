@@ -2,6 +2,11 @@ name: Run tests
 
 on:
   workflow_dispatch:
+    inputs:
+      test-filter:
+        description: "Optional jasmine --filter pattern; empty runs the full suite"
+        required: false
+        default: ""
 
 env:
   package_dir: "/"
@@ -9,6 +14,7 @@ env:
 jobs:
   run-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     permissions:
       contents: write
@@ -24,7 +30,22 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test
+        run: |
+          if [ -n "${{ inputs.test-filter }}" ]; then
+            npm run build && npm run fix-cli-permissions && npx jasmine --filter="${{ inputs.test-filter }}"
+          else
+            npm run test
+          fi
+
+      - name: Pack tarball
+        run: npm pack
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: ./baseline-browser-mapping-*.tgz
+          if-no-files-found: error
 
       - name: clean up
         run: rm -rf test-bcb dist node_modules
